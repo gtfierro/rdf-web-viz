@@ -1,0 +1,20 @@
+{
+  "name": "@example/minimal",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "check": "astro check; tsc"
+  },
+  "dependencies": {
+    "astro": "=1.4.4"
+  },
+  "devDependencies": {
+    "@types/node": "=18.8.3"
+  }
+}
