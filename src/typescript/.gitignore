@@ -3,6 +3,7 @@ dist/
 
 # dependencies
 node_modules/
+!public/node_modules/
 
 # logs
 npm-debug.log*

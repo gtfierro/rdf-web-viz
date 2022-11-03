@@ -1,6 +1,20 @@
 ---
+import TransformList from "@/components/TransformList.vue";
 ---
 
-<head>
-	<meta http-equiv="refresh" content="0; url=/greet" />
-</head>
+<html lang="en">
+	<head>
+		<title>Bruplint</title>
+		<script>
+			import "@/modules/main";
+		</script>
+	</head>
+	<body style="margin: 0;">
+		<main style="height: 100vh;">
+			<aside id="sidebar" style="float: left; height: 100%; width: 25%;">
+				<TransformList client:visible />
+			</aside>
+			<div id="placeholder" style="height: 100%; margin-left: 25%; width: 75%;"></div>
+		</main>
+	</body>
+</html>

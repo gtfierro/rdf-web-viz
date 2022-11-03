@@ -12,7 +12,11 @@
     "check": "astro check; tsc"
   },
   "dependencies": {
-    "astro": "=1.4.4"
+    "@astrojs/vue": "^1.2.1",
+    "astro": "=1.4.4",
+    "oxigraph": "=0.3.6",
+    "vis-network": "=9.1.2",
+    "vue": "=3.2.41"
   },
   "devDependencies": {
     "@types/node": "=18.8.3"

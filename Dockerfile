@@ -77,8 +77,12 @@ RUN ln -s /tmp/node_modules node_modules
 RUN sed -i "20c \  stack: string" node_modules/vfile-message/index.d.ts
 
 # Build Node code
-RUN npm run check && \
-    npm run build
+# RUN npm run check && \
+#     npm run build
+
+# Install again or it doesn't build
+RUN npm install
+RUN npm run build
 
 FROM python:3.10.7-alpine3.16 as release
 ARG BRUTIL_DIRECTORY
@@ -112,12 +116,12 @@ RUN pip install \
 COPY src/python/bruplint_backend src
 
 # Copy over compiled webpages
-COPY --from=bruplint-frontend-builder $BRUPLINT_DIST_DIRECTORY templates
+COPY --from=bruplint-frontend-builder $BRUPLINT_DIST_DIRECTORY astro
 
 # Move assets to static files location and adjust template files as needed
-RUN mkdir -p static && \
-    mv -t static templates/assets && \
-    find templates -type f -and -name *.html -print0 | xargs -0 sed -i "s/\/assets/\/static\/assets/g"
+#RUN mkdir -p static && \
+#    mv -t static templates/assets && \
+#    find templates -type f -and -name *.html -print0 | xargs -0 sed -i "s/\/assets/\/static\/assets/g"
 
 # Run app
 CMD ["python", "src"]
