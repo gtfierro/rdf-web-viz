@@ -1,0 +1,367 @@
+openapi: 3.0.3
+info:
+  title: Bruplint API
+  description: >
+    Bruplint API
+  version: 0.0.1
+tags:
+  - name: it
+    description: Everything
+paths:
+  /view/{username}/{series_name}/series.json:
+    get:
+      tags:
+        - it
+      summary: Get a series
+      description: Returns a series
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: series_name
+          in: path
+          required: true
+          schema:
+            type: string
+        # - name: timestamp
+        #   in: path
+        #   required: true
+        #   schema:
+        #     type: string
+        #     format: date-time
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Series'
+        '400':
+          description: Malformed parameters
+        '422':
+          description: Properly-formed request, but data doesn't exist
+  /view/{username}/{series_name}/view.json:
+    get:
+      tags:
+        - it
+      summary: Get a view
+      description: Returns a view
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: series_name
+          in: path
+          required: true
+          schema:
+            type: string
+        # - name: timestamp
+        #   in: path
+        #   required: true
+        #   schema:
+        #     type: string
+        #     format: date-time
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/View'
+        '400':
+          description: Malformed parameters
+        '422':
+          description: Properly-formed request, but data doesn't exist
+    post:
+      tags:
+        - it
+      summary: Post a view
+      description: Save a view
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: series_name
+          in: path
+          required: true
+          schema:
+            type: string
+        # - name: timestamp
+        #   in: path
+        #   required: true
+        #   schema:
+        #     type: string
+        #     format: date-time
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object 
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Malformed parameters
+  /view/{username}/{series_name}/graph.json:
+    get:
+      tags:
+        - it
+      summary: Get a graph
+      description: Returns a graph, formatted in JSON-ld
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: series_name
+          in: path
+          required: true
+          schema:
+            type: string
+        # - name: timestamp
+        #   in: path
+        #   required: true
+        #   schema:
+        #     type: string
+        #     format: date-time
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Malformed parameters
+        '422':
+          description: Properly-formed request, but data doesn't exist
+    post:
+      tags:
+        - it
+      summary: Post a graph
+      description: Save a graph
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: series_name
+          in: path
+          required: true
+          schema:
+            type: string
+        # - name: timestamp
+        #   in: path
+        #   required: true
+        #   schema:
+        #     type: string
+        #     format: date-time
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object 
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Malformed parameters
+  /view/{username}/{series_name}/graph.ttl:
+    get:
+      tags:
+        - it
+      summary: Get a graph
+      description: Returns a graph, formatted in Turtle
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: series_name
+          in: path
+          required: true
+          schema:
+            type: string
+        # - name: timestamp
+        #   in: path
+        #   required: true
+        #   schema:
+        #     type: string
+        #     format: date-time
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Malformed parameters
+        '422':
+          description: Properly-formed request, but data doesn't exist
+  /{username}/account.json:
+    post:
+      tags:
+        - it
+      summary: Post an account (hashed)
+      description: Save an account (password hashed)
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Malformed parameters
+      # security:
+      #   - bruplint_auth:
+      #       - write:views
+      #       - read:views
+components:
+  schemas:
+    VersionedViewLink:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: >
+            The time the view was created
+        url:
+          type: string
+          format: uri
+          description: >
+            A URL to the view's data
+    SeriesMetadata:
+      type: object
+      properties:
+        username:
+          type: string
+        series_name:
+          type: string
+        last_modified:
+          type: string
+          format: date-time
+    Series:
+      type: object
+      properties:
+        format:
+          type: string
+          enum:
+            - series
+        metadata:
+          $ref: '#/components/schemas/SeriesMetadata'
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/VersionedViewLink'
+    BasicTransform:
+      type: object
+      properties:
+        type:
+          type: string
+        params:
+          type: object
+    SparqlTransform:
+      allOf:
+        - $ref: '#/components/schemas/BasicTransform'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - sparql
+            params:
+              type: object
+              properties:
+                content:
+                  type: string
+                  format: sparql
+    Transform:
+      allOf:
+        - $ref: '#/components/schemas/BasicTransform'
+        - anyOf:
+          - $ref: '#/components/schemas/SparqlTransform'
+    SupportedRdfFormatString:
+      type: string
+      enum:
+        - "json-ld"
+        - "turtle"
+    BasicView:
+      type: object
+      properties:
+        format:
+          type: string
+        graph:
+          type: object
+          properties:
+            type:
+              $ref: '#/components/schemas/SupportedRdfFormatString'
+        transforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transform'
+    Bru:
+      allOf:
+        - $ref: '#/components/schemas/BasicView'
+        - type: object
+          properties:
+            format:
+              type: string
+              enum:
+                - bru
+            graph:
+              type: object
+              properties:
+                content:
+                  type: object
+    Brl:
+      allOf:
+        - $ref: '#/components/schemas/BasicView'
+        - type: object
+          properties:
+            format:
+              type: string
+              enum:
+                - brl
+            graph:
+              type: object
+              properties:
+                url:
+                  type: string
+                  format: uri
+    View:
+      allOf:
+        - $ref: '#/components/schemas/BasicView'
+        - anyOf:
+          - $ref: '#/components/schemas/Bru'
+          - $ref: '#/components/schemas/Brl'
+  # securitySchemes:
+  #   bruplint_auth:
+  #     type: oauth2
+  #     flows:
+  #       implicit:
+  #         authorizationUrl: https://petstore3.swagger.io/oauth/authorize
+  #         scopes:
+  #           write:pets: modify pets in your account
+  #           read:pets: read your pets
