@@ -13,7 +13,7 @@ swagger_template = dict(
 info = {
     'title': LazyString(lambda: 'User Associated Graphs'),
     'version': LazyString(lambda: '0.1'),
-    'description': LazyString(lambda: 'This document depicts sending a list of graph associated with a user.'),
+    'description': LazyString(lambda: 'This document depicts sending a list of graphs associated with a user.'),
     },
     host = LazyString(lambda: request.host)
 )
