@@ -1,4 +1,5 @@
 import type * as oxigraph from "oxigraph";
+import Swal from "sweetalert2";
 
 export type Nullable<T> = T | null;
 
@@ -67,11 +68,11 @@ export type Brl = {
 export type View = Bru | Brl;
 export type ViewFormat = View["format"];
 
-export async function loadBrl(brl: Brl): Promise<string>{
+export async function loadBrl(brl: Brl, hostname: string = window.origin): Promise<string>{
 	console.log("Loading Brl:", brl);
 	if(brl.graph.type !== "turtle") return "";
 
-	let url = (brl.graph.url[0] === '/') ? `http://localhost:8000${brl.graph.url}` : brl.graph.url;
+	let url = (brl.graph.url[0] === '/') ? `${hostname}${brl.graph.url}` : brl.graph.url;
 	return fetch(url).then(response => response.text());
 }
 
@@ -206,6 +207,11 @@ export function resizeTextArea(text_area: HTMLTextAreaElement){
 	text_area.style.height = `${text_area.scrollHeight}px`;
 }
 
+export function resizeInputWidth(input: HTMLInputElement){
+	input.style.width = "0px";
+	input.style.width = `${input.scrollWidth}px`;
+}
+
 export async function onceTrue(condition: () => boolean, polling_rate: number = 20, timeout: number = -1): Promise<() => boolean>{
 	let time_elapsed: number = 0;
 	let pollingFunction = function(resolve: (value: () => boolean) => void, reject: (reason?: any) => void){
@@ -229,3 +235,11 @@ export async function onceTrue(condition: () => boolean, polling_rate: number = 
 export function clearArray<T>(array: T[]){
 	while(array?.length > 0) array.pop();
 }
+
+export const toast = Swal.mixin({
+	position: "bottom-end",
+	showConfirmButton: false,
+	timerProgressBar: true,
+	timer: 1500,
+	toast: true
+});

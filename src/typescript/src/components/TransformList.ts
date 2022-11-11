@@ -13,7 +13,7 @@ export default defineComponent({
 		SparqlTransform,
 		RegexTransform
 	},
-	data() {
+	data(){
 		return {
 			active_transforms: reactive([] as {value: tf.TransformElement<util.TransformType>}[]),
 			applyTransforms: reactive({value: (_transforms: typeof this.active_transforms) => {}}),
@@ -40,6 +40,22 @@ export default defineComponent({
 				index,
 				value
 			};
+		},
+		moveDownTransform(index: number){
+			if(index >= this.active_transforms.length - 1) return;
+
+			this.active_transforms.splice(
+				index + 1, 0,
+				...this.active_transforms.splice(index, 1)
+			)
+		},
+		moveUpTransform(index: number){
+			if(index <= 0) return;
+
+			this.active_transforms.splice(
+				index - 1, 0,
+				...this.active_transforms.splice(index, 1)
+			)
 		},
 		restoreTransform(){
 			if(this.last_deleted_transform !== null){

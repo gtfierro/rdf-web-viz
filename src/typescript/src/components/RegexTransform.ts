@@ -1,9 +1,15 @@
 import { defineComponent } from "vue";
 
+// @ts-ignore: Vue components have no types
+import TransformHeader from "@/components/TransformHeader.vue";
+
 import * as util from "@/modules/util";
 import type * as tf from "@/modules/transform_element";
 
 export default defineComponent({
+	components: {
+		TransformHeader
+	},
 	data(){
 		return {
 			selected_flags: (this.modelValue as tf.RegexTransformElement).flags.split('').sort(),
@@ -23,12 +29,32 @@ export default defineComponent({
 		}
 	},
 	emits: [
-		"update:modelValue",
-		"delete"
+		"delete",
+		"move-down",
+		"move-up",
+		"update:modelValue"
 	],
 	methods: {
 		requestDelete(){
 			this.$emit("delete");
+		},
+		requestMoveDown(){
+			this.$emit("move-down");
+		},
+		requestMoveUp(){
+			this.$emit("move-up");
+		},
+		updateEnabled(enabled: boolean){
+			let output_transform = (this.modelValue as tf.RegexTransformElement).clone();
+			output_transform.enabled = enabled;
+
+			this.$emit("update:modelValue", output_transform);
+		},
+		updateFlags(){
+			let output_transform = (this.modelValue as tf.RegexTransformElement).clone();
+			output_transform.flags = this.selected_flags.sort().join('');
+
+			this.$emit("update:modelValue", output_transform);
 		},
 		updateName(name: string){
 			let output_transform = (this.modelValue as tf.RegexTransformElement).clone();
@@ -42,12 +68,6 @@ export default defineComponent({
 
 			this.$emit("update:modelValue", output_transform);
 		},
-		updateFlags(){
-			let output_transform = (this.modelValue as tf.RegexTransformElement).clone();
-			output_transform.flags = this.selected_flags.sort().join('');
-
-			this.$emit("update:modelValue", output_transform);
-		},
 		updateMatchOver(match_over: util.TripleElement){
 			let output_transform = (this.modelValue as tf.RegexTransformElement).clone();
 			output_transform.match_over = match_over;
@@ -57,6 +77,7 @@ export default defineComponent({
 	},
 	props: [
 		"transform-index",
+		"transform-max-index",
 		"modelValue"
 	],
 });

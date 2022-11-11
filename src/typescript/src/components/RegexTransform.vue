@@ -3,17 +3,23 @@ export { default } from "@/components/RegexTransform";
 </script>
 
 <template>
-	<div class="transform transform-regex">
-		<input :id='`transform-${transformIndex}-name`'
-			class="transform-regex-name"
-			:placeholder='`RegEx Transform #${transformIndex + 1}`'
-			:value='modelValue.name'
-			@input='updateName($event.target.value)'
+	<div
+		class="transform transform-regex"
+		:class='[{
+			"transform-disabled": !modelValue.enabled
+		}]'
+	>
+		<TransformHeader
+			:enabled='modelValue.enabled'
+			:name='modelValue.name'
+			:transform-index='transformIndex'
+			:transform-max-index='transformMaxIndex'
+			@delete='requestDelete()'
+			@move-down='requestMoveDown()'
+			@move-up='requestMoveUp()'
+			@update:enabled='updateEnabled($event)'
+			@update:name='updateName($event)'
 		/>
-		<button :id='`transform-${transformIndex}-name`'
-			class="transform-regex-delete"
-			@click='requestDelete()'
-		>–</button>
 		<br>
 		<label :for='`transform-${transformIndex}-pattern`'>Pattern:</label>
 		<input :id='`transform-${transformIndex}-pattern`'
@@ -32,8 +38,8 @@ export { default } from "@/components/RegexTransform";
 					type="checkbox"
 					:checked='modelValue.flags.match(flag) ? true : false'
 					:value='flag'
-					v-model='selected_flags'
 					@change='updateFlags()'
+					v-model='selected_flags'
 				/>
 				<label :for='`transform-${transformIndex}-flag-${flag}`'>{{ display_name }}</label>
 			</li>
@@ -64,23 +70,7 @@ export { default } from "@/components/RegexTransform";
 	margin: 0;
 }
 
-.transform-regex-delete {
-	background-color: rgba(255, 255, 255, .5);
-	border: 0;
+.transform-regex-button {
 	float: right;
-	font-size: 1rem;
-}
-
-.transform-regex-delete:hover {
-	background-color: rgba(255, 255, 255, .75);
-}
-.transform-regex-name {
-	background-color: rgba(255, 255, 255, .5);
-	border: 0;
-	font-size: 1rem;
-}
-
-.transform-regex-name:hover {
-	background-color: rgba(255, 255, 255, .75);
 }
 </style>

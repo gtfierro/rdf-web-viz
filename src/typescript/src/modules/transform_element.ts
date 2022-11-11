@@ -21,11 +21,15 @@ export class SparqlTransformElement implements TransformElement<"sparql">{
 	private output_store_size: number = 0;
 	private query_type: util.Nullable<util.QueryResultType> = null;
 
-	public enabled: boolean = true;
-
-	constructor(public query: string, public name: string = ''){}
+	constructor(
+		public query: string,
+		public name: string = '',
+		public enabled: boolean = true
+	){}
 
 	apply(store: oxigraph.Store): oxigraph.Store{
+		if(!this.enabled) return new oxigraph.Store(store.match(null, null, null, null));
+
 		let query_result: util.QueryResults;
 
 		try{
@@ -69,7 +73,6 @@ export class SparqlTransformElement implements TransformElement<"sparql">{
 						));
 					}
 				});
-			// match_store = new oxigraph.Store(store.match(null, null, null, null));
 		}else if(util.isQueryResultBoolean(query_result)){
 			this.query_type = "boolean";
 			this.boolean_query_result = query_result;
@@ -85,7 +88,7 @@ export class SparqlTransformElement implements TransformElement<"sparql">{
 	}
 
 	clone(): SparqlTransformElement{
-		return new SparqlTransformElement(this.query, this.name);
+		return new SparqlTransformElement(this.query, this.name, this.enabled);
 	}
 
 	toTransform(): util.SparqlTransform{
@@ -118,16 +121,17 @@ export class RegexTransformElement implements TransformElement<"regex">{
 
 	private output_store_size: number = 0;
 
-	public enabled: boolean = true;
-
 	constructor(
 		public regex: string,
 		public flags: string,
 		public match_over: util.TripleElement,
-		public name: string = ''
+		public name: string = '',
+		public enabled: boolean = true
 	){}
 
 	apply(store: oxigraph.Store): oxigraph.Store{
+		if(!this.enabled) return new oxigraph.Store(store.match(null, null, null, null));
+
 		let match_store = new oxigraph.Store();
 
 		switch(this.match_over){
@@ -160,7 +164,8 @@ export class RegexTransformElement implements TransformElement<"regex">{
 			this.regex,
 			this.flags,
 			this.match_over,
-			this.name
+			this.name,
+			this.enabled
 		);
 	}
 
@@ -190,7 +195,8 @@ export function createTransformElement(transform: util.BasicTransform): util.Nul
 			let sparql_transform = transform as util.SparqlTransform
 			return new SparqlTransformElement(
 				sparql_transform.params.query,
-				sparql_transform.name
+				sparql_transform.name,
+				sparql_transform.enabled
 			);
 		case "regex":
 			let regex_transform = transform as util.RegexTransform;
@@ -198,7 +204,8 @@ export function createTransformElement(transform: util.BasicTransform): util.Nul
 				regex_transform.params.regex,
 				regex_transform.params.flags,
 				regex_transform.params.match_over,
-				regex_transform.name
+				regex_transform.name,
+				regex_transform.enabled
 			);
 		default:
 			return null;

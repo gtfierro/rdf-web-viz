@@ -65,7 +65,7 @@ RUN npm install
 
 # Copy over Brutil_js package
 WORKDIR $BRUPLINT_DIRECTORY/
-COPY --from=brutil-builder $BRUTIL_DIRECTORY/wasm/pkg src/modules/brutil-js
+# COPY --from=brutil-builder $BRUTIL_DIRECTORY/wasm/pkg src/modules/brutil-js
 
 # Bring in Node source
 COPY src/typescript .
@@ -88,9 +88,33 @@ FROM python:3.10.7-alpine3.16 as release
 ARG BRUTIL_DIRECTORY
 ARG BRUPLINT_DIRECTORY
 
+# Add dependencies...
+RUN apk add --no-cache \
+    # ...for Rust
+    gcc \
+    # ...for Maturin (used by Pyoxigraph)
+    musl-dev \
+    patchelf \
+    # ...for Pyoxigraph
+    clang \
+    g++ \
+    linux-headers
+
 ARG BRUPLINT_DIST_DIRECTORY=$BRUPLINT_DIRECTORY/dist
 ARG BRUTIL_WHEEL_DIRECTORY=/opt/brutil_py
 ARG VIRTUAL_ENV=/opt/venv
+
+# Set up variables for Rust
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo
+ENV PATH=$CARGO_HOME/bin:$PATH
+
+# Copy in Rust files
+COPY --from=rust:1.64.0-alpine3.16 $RUSTUP_HOME $RUSTUP_HOME
+COPY --from=rust:1.64.0-alpine3.16 $CARGO_HOME $CARGO_HOME
+
+# Add rustfmt, required for building Pyoxigraph
+RUN rustup component add rustfmt
 
 # Install and set up virtual environment
 RUN pip install virtualenv && \
@@ -100,8 +124,8 @@ RUN pip install virtualenv && \
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Copy over and install Brutil_py wheel
-COPY --from=brutil-builder $BRUTIL_DIRECTORY/python/target/wheels $BRUTIL_WHEEL_DIRECTORY
-RUN pip install $BRUTIL_WHEEL_DIRECTORY/*
+# COPY --from=brutil-builder $BRUTIL_DIRECTORY/python/target/wheels $BRUTIL_WHEEL_DIRECTORY
+# RUN pip install $BRUTIL_WHEEL_DIRECTORY/*
 
 WORKDIR $BRUPLINT_DIRECTORY
 

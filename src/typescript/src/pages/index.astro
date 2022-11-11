@@ -1,4 +1,5 @@
 ---
+import PageHeader from "@/components/PageHeader.vue";
 import TransformList from "@/components/TransformList.vue";
 ---
 
@@ -8,9 +9,27 @@ import TransformList from "@/components/TransformList.vue";
 		<script>
 			import "@/modules/main";
 		</script>
+		<style is:inline>
+		body {
+			font-family: sans-serif;
+		}
+
+		button, input, select, textarea {
+			background-color: rgba(255, 255, 255, .5);
+			border: 0;
+			font-size: 1rem;
+		}
+
+		button:hover {
+			background-color: rgba(255, 255, 255, .75);
+		}
+		</style>
 	</head>
 	<body style="margin: 0;">
-		<main style="height: 100vh;">
+		<header style="height: 10vh;">
+			<PageHeader client:visible />
+		</header>
+		<main style="height: 90vh;">
 			<aside id="sidebar" style="float: left; height: 100%; width: 25%;">
 				<TransformList client:visible />
 			</aside>

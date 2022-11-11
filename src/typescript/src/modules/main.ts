@@ -1,4 +1,5 @@
 import init, * as oxigraph from "oxigraph/web.js";
+import Swal from "sweetalert2";
 import * as vis from "vis-network/standalone";
 import type * as vue from "vue";
 
@@ -10,8 +11,21 @@ declare global{
 		active_transforms: {value: tf.TransformElement<util.TransformType>}[];
 		applyTransforms: vue.Ref<(transforms: typeof window.active_transforms) => void>;
 		generateTransforms: () => util.Transform[];
+		view_location_options: {
+			active_graph: util.Nullable<util.View["graph"]>,
+			hostname: string,
+			username: string,
+			series_name: string,
+			onLoad: (hostname: string, username: string, series_name: string) => void,
+			onSave: (hostname: string, username: string, api_key: string) => void,
+			validateHost: (hostname: string) => Promise<boolean>
+		}
 	}
 }
+
+let matching_set = new Set<vis.IdType>();
+let node_view: vis.DataView<vis.Node, "id">;
+let store: oxigraph.Store;
 
 function getAllNodeIds(store: oxigraph.Store): Set<vis.IdType>{
 	return new Set(
@@ -27,40 +41,18 @@ function getAllNodeIds(store: oxigraph.Store): Set<vis.IdType>{
 	);
 }
 
-let matching_set = new Set<vis.IdType>();
-let node_view: vis.DataView<vis.Node, "id">;
-let store: oxigraph.Store;
-
-async function main(){
-	await init();
-	await util.onceTrue(() => window.active_transforms !== undefined);
-
-	util.onceTrue(() => window.applyTransforms !== undefined)
-		.then(() => {
-			window.applyTransforms.value = function(transforms: {value: tf.TransformElement<util.TransformType>}[]){
-				let transformed_store = transforms
-					.map(({value}) => value)
-					.reduce((current_store, transform) => {
-						let applied = transform.apply(current_store);
-						return applied;
-					}, new oxigraph.Store(store.match(null, null, null, null)));
-
-				matching_set = getAllNodeIds(transformed_store);
-				node_view.refresh();
-			};
-		});
-
-	window.generateTransforms = function(){
-		return window.active_transforms
-			.map(({value}) => value)
-			.map(transform => transform.toTransform());
-	}
-
-	fetch(`${window.location.href}/view.json`)
+async function onLoad(hostname: string, username: string, series_name: string){
+	fetch(`${hostname}/view/${username}/${series_name}/${new Date().toISOString().replace(/Z$/, "+00:00")}/view.json`)
 		.then(response => response.json() as unknown as util.View)
 		.then(view => {
+			util.toast.fire({
+				icon: "info",
+				title: `Loading View: ${window.view_location_options.username}/${window.view_location_options.series_name}`
+			});
+
 			util.clearArray(window.active_transforms);
 
+			window.view_location_options.active_graph = view.graph;
 			view.transforms.forEach(transform => {
 				switch(transform.type){
 					case "sparql":
@@ -76,7 +68,7 @@ async function main(){
 				}
 			});
 
-			return util.loadBrl(view as util.Brl);
+			return util.loadBrl(view as util.Brl, window.view_location_options.hostname);
 		})
 		.then(text => {
 			store = new oxigraph.Store();
@@ -186,6 +178,171 @@ async function main(){
 		})
 		.then(() => {
 			window.applyTransforms.value(window.active_transforms);
+		});
+}
+
+async function onSave(hostname: string, username: string, api_key: string){
+	let series_name: string = '';
+
+	Swal.fire({
+		confirmButtonText: "Save",
+		html: `
+			<span>Enter series name:</span><br>
+			<input id="input-series-name" class="swal2-input" placeholder="Series Name" value=${window.view_location_options.series_name}>
+		`.trim(),
+		showCancelButton: true,
+		title: "Save new view",
+		preConfirm(){
+			series_name = (Swal.getPopup()?.querySelector('#input-series-name') as util.Nullable<HTMLInputElement>)?.value ?? '';
+
+			if(series_name.length === 0){
+				Swal.showValidationMessage("Missing series name")
+			}
+		}
+	}).then(result => {
+		if(result.isConfirmed){
+			return fetch(`${hostname}/view/${username}/${series_name}/${new Date().toISOString().replace(/Z$/, "+00:00")}/series.json`);
+		}else{
+			return new Promise<Response>((_, reject) => reject("User cancelled saving"));
+		}
+	}).then(response => new Promise((resolve, reject) => {
+		switch(response.status){
+			case 200: // Series exists
+				Swal.fire({
+					icon: "warning",
+					showCancelButton: true,
+					text: "Add a new view to the existing series?",
+					title: "Series exists"
+				}).then(confirmation_result => {
+					if(confirmation_result.isConfirmed){
+						resolve(response);
+					}else{
+						reject("User cancelled saving, opting not to add a new view");
+					}
+				})
+				break;
+			case 422: // Series doesn't exist
+				resolve(response);
+				break;
+			default:
+				reject(`Unknown status code: ${response.status}`)
+		}
+	})).then(_response => {
+		let view: util.View;
+
+		if((window.view_location_options.active_graph as any).url !== undefined){
+			view = {
+				format: "brl",
+				graph: {...window.view_location_options.active_graph} as util.Brl["graph"],
+				transforms: window.active_transforms.map(transform_element => transform_element.value.toTransform())
+			};
+		}else{
+			view = {
+				format: "bru",
+				graph: {...window.view_location_options.active_graph} as util.Bru["graph"],
+				transforms: window.active_transforms.map(transform_element => transform_element.value.toTransform())
+			};
+		}
+
+		return fetch(`${hostname}/view/${username}/${series_name}/${new Date().toISOString().replace(/Z$/, "+00:00")}/view.json`, {
+			body: JSON.stringify(view),
+			headers: {
+				"Authentication": api_key,
+				"Content-Type": "application/json"
+			},
+			method: "POST"
+		});
+	}).then(response => {
+		switch(response.status){
+			case 200:
+			case 201:
+			case 204:
+				let link = response.url.match(/^(.+?)\/view.json/)?.[1];
+				Swal.fire({
+					icon: "success",
+					html: `<a href="${link}">${link}</a>`,
+					title: "View saved"
+				});
+
+				try{
+					window.history.replaceState(null, '', link);
+				}catch(e){}
+				break;
+			default:
+				util.toast.fire({
+					icon: "error",
+					title: "View failed to save"
+				});
+				break;
+		}
+	}).catch(() => {});
+}
+
+async function validateHost(hostname: string): Promise<boolean>{
+	try{
+		let url = new URL(`${hostname}/bruplint`);
+		return await fetch(url)
+			.then(response => response.status === 204)
+			.catch(() => false);
+	}catch{
+		return false;
+	}
+}
+
+async function main(){
+	await init();
+	await util.onceTrue(() => window.active_transforms !== undefined);
+
+	util.onceTrue(() => window.applyTransforms !== undefined)
+		.then(() => {
+			window.applyTransforms.value = function(transforms: {value: tf.TransformElement<util.TransformType>}[]){
+				let transformed_store = transforms
+					.map(({value}) => value)
+					.reduce((current_store, transform) => {
+						let applied = transform.apply(current_store);
+						return applied;
+					}, new oxigraph.Store(store.match(null, null, null, null)));
+
+				matching_set = getAllNodeIds(transformed_store);
+				node_view.refresh();
+			};
+		});
+
+	window.generateTransforms = function(){
+		return window.active_transforms
+			.map(({value}) => value)
+			.map(transform => transform.toTransform());
+	}
+
+	util.onceTrue(() => window.view_location_options !== undefined)
+		.then(() => {
+			let current_location_match = window.location.href.match(/^(?<hostname>.+?)\/view\/(?<username>[^\/]+)\/(?<series_name>[^\/]+)/);
+			if(current_location_match !== null){
+				window.view_location_options.hostname = current_location_match.groups?.hostname ?? '';
+				window.view_location_options.username = current_location_match.groups?.username ?? '';
+				window.view_location_options.series_name = current_location_match.groups?.series_name ?? '';
+			}
+			// window.view_location_options.hostname = "http://localhost:5000";
+			// window.view_location_options.username = "ceres";
+			// window.view_location_options.series_name = "b";
+
+			window.view_location_options.onLoad = onLoad;
+			window.view_location_options.onSave = onSave;
+			window.view_location_options.validateHost = validateHost;
+
+			// If all fields are already populated, immediately try to load
+			if(
+				window.view_location_options.hostname !== '' &&
+				window.view_location_options.username !== '' &&
+				window.view_location_options.series_name !== ''
+			) window.view_location_options.validateHost(window.view_location_options.hostname)
+				.then(host_is_valid => {
+					if(host_is_valid) window.view_location_options.onLoad(
+						window.view_location_options.hostname,
+						window.view_location_options.username,
+						window.view_location_options.series_name
+					)
+				});
 		});
 }
 
