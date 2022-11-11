@@ -74,8 +74,15 @@ async function onLoad(hostname: string, username: string, series_name: string){
 			store = new oxigraph.Store();
 			store.load(text, "text/turtle", null, null);
 
-			let nodes = new vis.DataSet((store.query("SELECT DISTINCT ?s WHERE { ?s ?p ?o }")! as Map<String, oxigraph.NamedNode>[])
-				.map(result => result.get('s')!)
+			let nodes = new vis.DataSet((store.query(`
+				SELECT DISTINCT ?node WHERE {
+					{ ?node ?p ?o }
+					UNION
+					{ ?s ?p ?node }
+					FILTER (!isBlank(?node) && !isLiteral(?node))
+				}
+			`)! as Map<String, oxigraph.NamedNode>[])
+				.map(result => result.get("node")!)
 				.map(node => {
 					return {
 						id: node.value,
@@ -322,9 +329,6 @@ async function main(){
 				window.view_location_options.username = current_location_match.groups?.username ?? '';
 				window.view_location_options.series_name = current_location_match.groups?.series_name ?? '';
 			}
-			// window.view_location_options.hostname = "http://localhost:5000";
-			// window.view_location_options.username = "ceres";
-			// window.view_location_options.series_name = "b";
 
 			window.view_location_options.onLoad = onLoad;
 			window.view_location_options.onSave = onSave;

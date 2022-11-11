@@ -80,7 +80,7 @@ export function displayName(full_name: string): string{
 	return full_name
 		.match(/#([^#]+)$/g)![0]!
 		.substring(1)
-		.match(/[A-Z]?[0-9a-z]+/g)!
+		.match(/([A-Z]?[0-9a-z]+|[A-Z])/g)!
 		.map(word => {
 			let [first, ...rest] = word.toLowerCase();
 			return [first!.toUpperCase(), ...rest].join('');
