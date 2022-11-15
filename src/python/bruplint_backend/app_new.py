@@ -166,7 +166,6 @@ def create(config: Optional[Mapping[str, Any]] = None) -> Flask:
             db.select(View)
                 .where(View.username == username)
                 .where(View.display_name == display_name)
-                .order_by(db.desc(View.timestamp))
         ).first()
 
         if view == None:
@@ -185,6 +184,19 @@ def create(config: Optional[Mapping[str, Any]] = None) -> Flask:
             },
             transforms = view[0].transforms
         )
+
+    @app.route("/view/<username>/<display_name/view.json>", methods=["PUT"])
+    def put_view_json(username: str, display_name: str) -> Response:
+        if request.headers.get("Content-Type") != "application/json":
+            print("Failed JSON")
+            app.aborter(400) # Content is not JSON
+
+        filename = request.json.get("view").get("filename")
+        transforms = request.json.get("view").get("transforms")
+
+        view = View(username, display_name, filename, transforms)
+        db.session.add(view)
+        db.session.commit()
 
     # TODO: In future, when other types can be supported, should this return 404 on non-Turtle types?
     # TODO: Alternatively, headers have an "Accepts" field that can be a list of MIME types
@@ -209,6 +221,20 @@ def create(config: Optional[Mapping[str, Any]] = None) -> Flask:
         response = make_response(graph.content, 200)
         response.headers["Content-Type"] = "text/turtle"
         return response
+
+    @app.route("/view/display_name", methods=["PUT"])
+    def put_graph_data(username: str, display_name: str) -> Response:
+        if request.headers.get("Content-Type") != "application/json":
+            print("Failed JSON")
+            app.aborter(400) # Content is not JSON
+
+        graph_data = request.json.get("graph").get("graph_data")
+        graph_source = display_name
+
+        # TODO: Dr. Fierro suggests hashing graph_data
+        graph = Graph(graph_source, graph_data)
+        db.session.add(graph)
+        db.session.commit()
 
     @app.route("/view/<username>/<display_name>", methods=["GET"])
     def get_main_page(username: str, display_name: str) -> str:
