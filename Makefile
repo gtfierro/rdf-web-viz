@@ -15,30 +15,15 @@ RUN_INTERACTIVE_COMMAND=/bin/sh
 
 INFO_PREFIX=[make] Info: 
 
-FRONTEND_RUST_SOURCE_FILES=$(shell find src/rust/lib/ src/rust/wasm -name *.rs)
-BRUTIL_JS_LOCAL_INSTALL_LOCATION=src/typescript/src/modules/brutil-js
-
 all: $(DOCKERFILE) pull-images
 	$(info $(INFO_PREFIX)Building Dockerfile)
 	@$(DOCKER) build . -f $(DOCKERFILE) -t $(DOCKER_IMAGE_NAME)
 
 check: check-backend check-frontend
 
-check-backend: check-rust-lib check-rust-python check-python
+check-backend: check-python
 
-check-frontend: check-rust-lib check-rust-wasm check-typescript
-
-check-rust-lib:
-	$(info $(INFO_PREFIX)Checking core Rust library)
-	@cd src/rust/lib && cargo check
-
-check-rust-python:
-	$(info $(INFO_PREFIX)Checking PyO3 wrapper library)
-	@cd src/rust/python && cargo check
-
-check-rust-wasm:
-	$(info $(INFO_PREFIX)Checking Wasm-Bindgen wrapper library)
-	@cd src/rust/wasm && cargo check
+check-frontend: check-typescript
 
 check-python:
 
@@ -58,14 +43,9 @@ dev-backend:
 	$(info $(INFO_PREFIX)Running Docker image in development mode)
 	@$(DOCKER) run $(DOCKER_RUN_ARGS) $(DOCKER_PORT_BINDINGS) $(DOCKER_DEV_VOLUME_BINDING) $(DOCKER_IMAGE_NAME) $(DOCKER_DEV_COMMAND)
 
-# dev-frontend: local-brutil-js
 dev-frontend:
 	$(info $(INFO_PREFIX)Running Astro in development mode)
 	@cd src/typescript && npm run dev
-
-local-brutil-js: $(FRONTEND_RUST_SOURCE_FILES)
-	$(info $(INFO_PREFIX)Building Brutil-js locally)
-	@wasm-pack build --out-dir ../../typescript/src/modules/brutil-js --out-name index --target web src/rust/wasm
 
 pull-images:
 	$(info $(INFO_PREFIX)Pulling needed Docker images)
