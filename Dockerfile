@@ -1,31 +1,31 @@
 ARG BRUPLINT_DIRECTORY=/opt/bruplint
 
-FROM node:18.10.0-alpine3.16 as bruplint-frontend-builder
-ARG BRUTIL_DIRECTORY
-ARG BRUPLINT_DIRECTORY
+# FROM node:18.10.0-alpine3.16 as bruplint-frontend-builder
+# ARG BRUTIL_DIRECTORY
+# ARG BRUPLINT_DIRECTORY
 
-# Copy over and install requirements for Node
-WORKDIR /tmp
-COPY src/typescript/package.json package.json
-RUN npm install
+# # Copy over and install requirements for Node
+# WORKDIR /tmp
+# COPY src/typescript/package.json package.json
+# RUN npm install
 
-# Bring in Node source
-WORKDIR $BRUPLINT_DIRECTORY/
-COPY src/typescript .
+# # Bring in Node source
+# WORKDIR $BRUPLINT_DIRECTORY/
+# COPY src/typescript .
 
-# Link to Node dependencies
-RUN ln -s /tmp/node_modules node_modules
+# # Link to Node dependencies
+# RUN ln -s /tmp/node_modules node_modules
 
-# Patch type definition to appease tsc
-RUN sed -i "20c \  stack: string" node_modules/vfile-message/index.d.ts
+# # Patch type definition to appease tsc
+# RUN sed -i "20c \  stack: string" node_modules/vfile-message/index.d.ts
 
-# Build Node code
-# RUN npm run check && \
-#     npm run build
+# # Build Node code
+# # RUN npm run check && \
+# #     npm run build
 
-# Install again or it doesn't build
-RUN npm install
-RUN npm run build
+# # Install again or it doesn't build
+# RUN npm install
+# RUN npm run build
 
 FROM python:3.10.7-alpine3.16 as release
 ARG BRUTIL_DIRECTORY
@@ -78,7 +78,7 @@ RUN pip install \
 COPY src/python/bruplint_backend src
 
 # Copy over compiled webpages
-COPY --from=bruplint-frontend-builder $BRUPLINT_DIST_DIRECTORY astro
+# COPY --from=bruplint-frontend-builder $BRUPLINT_DIST_DIRECTORY astro
 
 # Move assets to static files location and adjust template files as needed
 #RUN mkdir -p static && \

@@ -5,7 +5,7 @@ DOCKER_RECEIVE_PORT=8000
 DOCKER_PUBLISH_PORT=8000
 
 DOCKER_DEV_COMMAND=flask --app src/app:create --debug run --host 0.0.0.0 --port $(DOCKER_RECEIVE_PORT)
-DOCKER_DEV_VOLUME_BINDING=--mount type=bind,source=src/python/bruplint_backend,destination=/opt/bruplint/src
+DOCKER_DEV_VOLUME_BINDING=--mount type=bind,source=$(shell pwd)/src/python/bruplint_backend,destination=/opt/bruplint/src
 DOCKER_IMAGE_NAME=bruplint
 DOCKER_PRUNE_ARGS=--all --force
 DOCKER_PORT_BINDINGS=--publish $(DOCKER_RECEIVE_PORT):$(DOCKER_PUBLISH_PORT)
