@@ -34,6 +34,7 @@ export default defineComponent({
 				hostname: '',
 				username: '',
 				series_name: '',
+				onFileUploaded(_file: File){},
 				onLoad(_hostname: string, _username: string, _series_name: string){},
 				onSave(_hostname: string, _username: string, _api_key: string){},
 				validateHost(_hostname: string): Promise<boolean>{
@@ -124,6 +125,67 @@ export default defineComponent({
 		clearCurrentHostnameStatus(){
 			this.current_hostname_valid = null;
 		},
+		createUser(){
+			Swal.fire({
+				confirmButtonText: "Create",
+				html: '<input type="text" id="input-username" class="swal2-input" placeholder="Username">',
+				showCancelButton: true,
+				title: "Create User",
+				preConfirm(): string{
+					let username = (Swal.getPopup()?.querySelector('#input-username') as util.Nullable<HTMLInputElement>)?.value;
+
+					if(username === undefined || username.length == 0){
+						Swal.showValidationMessage(`Missing username`);
+						return '';
+					}else{
+						// `undefined` fields should have been caught by the `if`-clause
+						return username;
+					}
+				}
+			}).then(username => fetch(`${window.view_location_options.hostname}/user/${username.value}`, {
+					method: "PUT"
+			})).then(async response => {
+				switch(response.status){
+					case 200:
+					case 201:
+						let json = await response.json() as {api_key: string, username: string};
+						this.current_user = {
+							api_key: json.api_key,
+							username: json.username
+						};
+						Swal.fire({
+							icon: "success",
+							html: `<p>Username: ${this.current_user.username}</p><p>API Key: ${this.current_user.api_key}</p><br><p>Please remember this API key, it will not be shown again</p>`,
+							title: "Created User"
+						}).then(_result => {
+							util.toast.fire({
+								icon: "success",
+								title: `Logged in as user: ${this.current_user.username}`
+							})
+						});
+						break;
+					case 403: // User exists
+						this.current_user = {
+							api_key: null,
+							username: null
+						};
+						util.toast.fire({
+							icon: "error",
+							title: "Failed to create user: User exists"
+						});
+						break;
+					default:
+						this.current_user = {
+							api_key: null,
+							username: null
+						};
+						util.toast.fire({
+							icon: "error",
+							title: "Failed to create user"
+						});
+				}
+			});
+		},
 		logOut(){
 			if(!this.loggedIn) return;
 
@@ -197,7 +259,7 @@ export default defineComponent({
 			this.$refs.input_series_name as HTMLInputElement
 		);
 
-		watch(this.view_location_options, () => {
+		let unwatch = watch(this.view_location_options, () => {
 			setTimeout(() => {
 				this.resize(
 					this.$refs.input_hostname as HTMLInputElement,
@@ -206,6 +268,7 @@ export default defineComponent({
 				);
 
 				this.checkCurrentHostnameStatus();
+				unwatch();
 			}, 1);
 		});
 	}

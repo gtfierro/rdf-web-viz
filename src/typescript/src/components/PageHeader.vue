@@ -11,13 +11,15 @@ export { default } from "@/components/PageHeader";
 		</div>
 		<table class="page-header-login">
 			<tbody>
-				<tr v-if='current_user.username !== null'>
+				<tr>
 					<td style="text-align: right;">
-						<span>Logged in as: {{ current_user.username }}</span>
+						<span v-if='loggedIn'>Logged in as: {{ current_user.username }}</span>
+						<span v-else>Not logged in</span>
 					</td>
 				</tr>
 				<tr>
 					<td style="text-align: right;">
+						<button v-if='!loggedIn' @click='createUser()'>Create User</button>
 						<button @click='attemptLogIn()'>{{ loggedIn ? "Change User" : "Log In" }}</button>
 						<button v-if='loggedIn' @click='logOut()'>Log Out</button>
 					</td>
@@ -27,7 +29,7 @@ export { default } from "@/components/PageHeader";
 		<table class="page-header-inputs">
 			<tbody>
 				<tr>
-					<td colspan=2 style="text-align: center;">
+					<td style="text-align: center;">
 						<input id="page-header-hostname"
 							ref="input_hostname"
 							placeholder="hostname"
@@ -53,11 +55,10 @@ export { default } from "@/components/PageHeader";
 					</td>
 				</tr>
 				<tr>
-					<td style="text-align: right;">
+					<td>
 						<button @click='requestSave()' :disabled='view_location_options.active_graph === null || !loggedIn'>Save</button>
-					</td>
-					<td style="text-align: left;">
 						<button @click='requestLoad()' :disabled='current_hostname_valid !== true'>Load</button>
+						<input class="graph-upload" type="file" accept="text/turtle" @input='view_location_options.onFileUploaded($event.target.files[0])' />
 					</td>
 				</tr>
 			</tbody>
@@ -118,5 +119,9 @@ export { default } from "@/components/PageHeader";
 
 .hostname-valid {
 	background-color: rgba(127, 255, 127, 0.5);
+}
+
+input.graph-upload {
+	font-size: 1rem;
 }
 </style>

@@ -77,8 +77,10 @@ export async function loadBrl(brl: Brl, hostname: string = window.origin): Promi
 }
 
 export function displayName(full_name: string): string{
-	return full_name
-		.match(/#([^#]+)$/g)![0]!
+	let match_string = full_name.match(/#([^#]+)$/g)
+	if(match_string === null) match_string = full_name.match(/\/([^/]+)$/g);
+
+	return match_string![0]!
 		.substring(1)
 		.match(/([A-Z]?[0-9a-z]+|[A-Z])/g)!
 		.map(word => {

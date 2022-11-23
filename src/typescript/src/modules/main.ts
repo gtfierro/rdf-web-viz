@@ -16,6 +16,7 @@ declare global{
 			hostname: string,
 			username: string,
 			series_name: string,
+			onFileUploaded: (file: File) => void,
 			onLoad: (hostname: string, username: string, series_name: string) => void,
 			onSave: (hostname: string, username: string, api_key: string) => void,
 			validateHost: (hostname: string) => Promise<boolean>
@@ -41,8 +42,171 @@ function getAllNodeIds(store: oxigraph.Store): Set<vis.IdType>{
 	);
 }
 
+async function readAsText(file: File): Promise<string>{
+	return new Promise((resolve, reject) => {
+		let reader = new FileReader();
+		reader.onload = () => {
+			if(reader.result === null){
+				reject("File contents are null");
+			}else{
+				resolve(reader.result as string);
+			}
+		};
+		reader.onerror = reject;
+
+		reader.readAsText(file);
+	});
+}
+
+function loadGraph(content: string){
+	store = new oxigraph.Store();
+	store.load(content, "text/turtle", null, null);
+
+	let nodes = new vis.DataSet((store.query(`
+		SELECT DISTINCT ?node WHERE {
+			{ ?node ?p ?o }
+			UNION
+			{ ?s ?p ?node }
+			FILTER (!isBlank(?node) && !isLiteral(?node))
+		}
+	`)! as Map<String, oxigraph.NamedNode>[])
+		.map(result => result.get("node")!)
+		.map(node => {
+			return {
+				id: node.value,
+				label: util.displayName(node.value)
+			};
+		}) as vis.Node[]);
+
+	let edges = new vis.DataSet((store.match(null, null, null, null) as oxigraph.Quad[])
+		.map(quad => {
+			return {
+				from: quad.subject.value,
+				to: quad.object.value,
+				label: util.displayName(quad.predicate.value),
+				relation: quad.predicate.value,
+				arrows: "to",
+				font: {
+					align: "middle"
+				}
+			};
+		}) as vis.Edge[]);
+
+	for(let node of nodes.getIds()){
+		let match = false;
+		for(let edge of edges.map(it=>it.to)){
+			if(edge === node){
+				match = true;
+				break;
+			}
+		}
+		if(!match) nodes.remove(node);
+	}
+
+	console.log(`${nodes.length} nodes and ${edges.length} edges created`);
+
+	node_view = new vis.DataView(nodes, {
+		filter: function(item){
+			if(item.id === undefined) return false;
+			return matching_set.has(item.id);
+		}
+	});
+
+	let network = new vis.Network(
+		document.getElementById("placeholder")!,
+		{
+			nodes: node_view,
+			edges: edges
+		},
+		{
+			layout: {
+				improvedLayout: false
+			},
+			nodes: {
+				shapeProperties: {
+					interpolation: false
+				}
+			},
+			physics: {
+				stabilization: {
+					iterations: 512,
+					updateInterval: 100
+				}
+			},
+			edges: {
+				smooth: {
+					enabled: true,
+					type: "continuous",
+					roundness: 0
+				}
+			}
+		}
+	);
+
+	console.log("Graph created, loading...");
+
+	network.on("selectNode", (event: {nodes: vis.IdType[], edges: vis.IdType[]}) => {
+		let selected_node_id = event.nodes[0]!;
+		if(network.isCluster(selected_node_id)){
+			network.openCluster(selected_node_id);
+		}else{
+			let selected_node = nodes.get(selected_node_id)!;
+
+			// Rather than what looping through all the event edges (which also requires keeping every single event in memory).
+			// precompute a set containing all the ids (and, at some point, make a shorter way of IDing the nodes, rather than just their full name)
+			let nodes_to_cluster = new Set<vis.IdType>([
+				selected_node_id,
+				...event.edges
+					.map(edge_id => edges.get(edge_id)?.to)
+					.filter(el => el != undefined) as vis.IdType[]
+			]);
+
+			network.cluster({
+				clusterNodeProperties: {
+					label: selected_node.label ?? "Cluster",
+					color: "#ff6666"
+				},
+				joinCondition: (node: {id: vis.IdType}) => nodes_to_cluster.has(node.id)
+			});
+		}
+	});
+
+	window.applyTransforms.value(window.active_transforms);
+}
+
+async function onFileUploaded(file: File){
+	console.log(file)
+
+	if(file.type !== "text/turtle"){
+		util.toast.fire({
+			icon: "error",
+			title: `Unsupported MIME type: ${file.type}`
+		});
+		return;
+	}
+
+	readAsText(file).then(text => {
+		util.toast.fire({
+			icon: "success",
+			title: `Loaded local file: ${file.name}`
+		});
+
+		window.view_location_options.active_graph = {
+			type: "turtle",
+			content: {
+				data: text
+			}
+		};
+
+		loadGraph(text);
+	}).catch((e) => util.toast.fire({
+		icon: "error",
+		title: `Unable to read local file: ${file.name}, ${e}`
+	}));
+}
+
 async function onLoad(hostname: string, username: string, series_name: string){
-	fetch(`${hostname}/view/${username}/${series_name}/${new Date().toISOString().replace(/Z$/, "+00:00")}/view.json`)
+	fetch(`${hostname}/view/${username}/${series_name}/view.json`)
 		.then(response => response.json() as unknown as util.View)
 		.then(view => {
 			util.toast.fire({
@@ -70,122 +234,7 @@ async function onLoad(hostname: string, username: string, series_name: string){
 
 			return util.loadBrl(view as util.Brl, window.view_location_options.hostname);
 		})
-		.then(text => {
-			store = new oxigraph.Store();
-			store.load(text, "text/turtle", null, null);
-
-			let nodes = new vis.DataSet((store.query(`
-				SELECT DISTINCT ?node WHERE {
-					{ ?node ?p ?o }
-					UNION
-					{ ?s ?p ?node }
-					FILTER (!isBlank(?node) && !isLiteral(?node))
-				}
-			`)! as Map<String, oxigraph.NamedNode>[])
-				.map(result => result.get("node")!)
-				.map(node => {
-					return {
-						id: node.value,
-						label: util.displayName(node.value)
-					};
-				}) as vis.Node[]);
-
-			let edges = new vis.DataSet((store.match(null, null, null, null) as oxigraph.Quad[])
-				.map(quad => {
-					return {
-						from: quad.subject.value,
-						to: quad.object.value,
-						label: util.displayName(quad.predicate.value),
-						relation: quad.predicate.value,
-						arrows: "to",
-						font: {
-							align: "middle"
-						}
-					};
-				}) as vis.Edge[]);
-
-			for(let node of nodes.getIds()){
-				let match = false;
-				for(let edge of edges.map(it=>it.to)){
-					if(edge === node){
-						match = true;
-						break;
-					}
-				}
-				if(!match) nodes.remove(node);
-			}
-
-			console.log(`${nodes.length} nodes and ${edges.length} edges created`);
-
-			node_view = new vis.DataView(nodes, {
-				filter: function(item){
-					if(item.id === undefined) return false;
-					return matching_set.has(item.id);
-				}
-			});
-
-			let network = new vis.Network(
-				document.getElementById("placeholder")!,
-				{
-					nodes: node_view,
-					edges: edges
-				},
-				{
-					layout: {
-						improvedLayout: false
-					},
-					nodes: {
-						shapeProperties: {
-							interpolation: false
-						}
-					},
-					physics: {
-						stabilization: {
-							iterations: 512,
-							updateInterval: 100
-						}
-					},
-					edges: {
-						smooth: {
-							enabled: true,
-							type: "continuous",
-							roundness: 0
-						}
-					}
-				}
-			);
-
-			console.log("Graph created, loading...");
-
-			network.on("selectNode", (event: {nodes: vis.IdType[], edges: vis.IdType[]}) => {
-				let selected_node_id = event.nodes[0]!;
-				if(network.isCluster(selected_node_id)){
-					network.openCluster(selected_node_id);
-				}else{
-					let selected_node = nodes.get(selected_node_id)!;
-
-					// Rather than what looping through all the event edges (which also requires keeping every single event in memory).
-					// precompute a set containing all the ids (and, at some point, make a shorter way of IDing the nodes, rather than just their full name)
-					let nodes_to_cluster = new Set<vis.IdType>([
-						selected_node_id,
-						...event.edges
-							.map(edge_id => edges.get(edge_id)?.to)
-							.filter(el => el != undefined) as vis.IdType[]
-					]);
-
-					network.cluster({
-						clusterNodeProperties: {
-							label: selected_node.label ?? "Cluster",
-							color: "#ff6666"
-						},
-						joinCondition: (node: {id: vis.IdType}) => nodes_to_cluster.has(node.id)
-					});
-				}
-			});
-		})
-		.then(() => {
-			window.applyTransforms.value(window.active_transforms);
-		});
+		.then(loadGraph);
 }
 
 async function onSave(hostname: string, username: string, api_key: string){
@@ -194,8 +243,8 @@ async function onSave(hostname: string, username: string, api_key: string){
 	Swal.fire({
 		confirmButtonText: "Save",
 		html: `
-			<span>Enter series name:</span><br>
-			<input id="input-series-name" class="swal2-input" placeholder="Series Name" value=${window.view_location_options.series_name}>
+			<span>Enter view name:</span><br>
+			<input id="input-series-name" class="swal2-input" placeholder="View Name" value=${window.view_location_options.series_name}>
 		`.trim(),
 		showCancelButton: true,
 		title: "Save new view",
@@ -203,32 +252,32 @@ async function onSave(hostname: string, username: string, api_key: string){
 			series_name = (Swal.getPopup()?.querySelector('#input-series-name') as util.Nullable<HTMLInputElement>)?.value ?? '';
 
 			if(series_name.length === 0){
-				Swal.showValidationMessage("Missing series name")
+				Swal.showValidationMessage("Missing view name")
 			}
 		}
 	}).then(result => {
 		if(result.isConfirmed){
-			return fetch(`${hostname}/view/${username}/${series_name}/${new Date().toISOString().replace(/Z$/, "+00:00")}/series.json`);
+			return fetch(`${hostname}/view/${username}/${series_name}/view.json`);
 		}else{
 			return new Promise<Response>((_, reject) => reject("User cancelled saving"));
 		}
 	}).then(response => new Promise((resolve, reject) => {
 		switch(response.status){
-			case 200: // Series exists
+			case 200: // View exists
 				Swal.fire({
 					icon: "warning",
 					showCancelButton: true,
-					text: "Add a new view to the existing series?",
-					title: "Series exists"
+					text: "Overwrite?",
+					title: "View exists"
 				}).then(confirmation_result => {
 					if(confirmation_result.isConfirmed){
 						resolve(response);
 					}else{
-						reject("User cancelled saving, opting not to add a new view");
+						reject("User cancelled saving, opting not to overwrite");
 					}
 				})
 				break;
-			case 422: // Series doesn't exist
+			case 422: // View doesn't exist
 				resolve(response);
 				break;
 			default:
@@ -251,7 +300,7 @@ async function onSave(hostname: string, username: string, api_key: string){
 			};
 		}
 
-		return fetch(`${hostname}/view/${username}/${series_name}/${new Date().toISOString().replace(/Z$/, "+00:00")}/view.json`, {
+		return fetch(`${hostname}/view/${username}/${series_name}/view.json`, {
 			body: JSON.stringify(view),
 			headers: {
 				"Authentication": api_key,
@@ -330,6 +379,7 @@ async function main(){
 				window.view_location_options.series_name = current_location_match.groups?.series_name ?? '';
 			}
 
+			window.view_location_options.onFileUploaded = onFileUploaded;
 			window.view_location_options.onLoad = onLoad;
 			window.view_location_options.onSave = onSave;
 			window.view_location_options.validateHost = validateHost;
