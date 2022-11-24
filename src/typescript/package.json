@@ -1,0 +1,25 @@
+{
+  "name": "@example/minimal",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "check": "astro check; tsc"
+  },
+  "dependencies": {
+    "@astrojs/vue": "=1.2.1",
+    "astro": "=1.4.4",
+    "oxigraph": "=0.3.6",
+    "sweetalert2": "=11.6.5",
+    "vis-network": "=9.1.2",
+    "vue": "=3.2.41"
+  },
+  "devDependencies": {
+    "@types/node": "=18.8.3"
+  }
+}

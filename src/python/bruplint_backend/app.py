@@ -80,7 +80,7 @@ def create(config: Optional[Mapping[str, Any]] = None) -> Flask:
                     username = username,
                     api_key = token_urlsafe(32)
                 )
-                print(new_user)
+
                 db.session.add(new_user)
                 db.session.commit()
                 # TODO: Make 201 status code
@@ -229,7 +229,7 @@ def create(config: Optional[Mapping[str, Any]] = None) -> Flask:
         return response
 
     @app.route("/view/<username>/<display_name>", methods=["GET"])
-    def get_main_page(username: str, display_name: str) -> str:
+    def get_main_page(username: str, display_name: str) -> Response:
         view = db.session.execute(
             db.select(View)
                 .where(View.username == username)
@@ -239,6 +239,10 @@ def create(config: Optional[Mapping[str, Any]] = None) -> Flask:
         if view == None:
             app.aborter(422)
 
+        return render_template("index.html")
+
+    @app.route("/", methods=["GET"])
+    def get_main_page_root() -> Response:
         return render_template("index.html")
 
     @app.route("/bruplint", methods=["GET"])

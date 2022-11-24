@@ -1,0 +1,5 @@
+# Python Cache
+__pycache__
+
+# Flask instance directory
+instance

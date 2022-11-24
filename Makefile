@@ -10,6 +10,7 @@ DOCKER_IMAGE_NAME=bruplint
 DOCKER_PRUNE_ARGS=--all --force
 DOCKER_PORT_BINDINGS=--publish $(DOCKER_RECEIVE_PORT):$(DOCKER_PUBLISH_PORT)
 DOCKER_RUN_ARGS=--interactive --rm --tty
+DOCKER_VOLUME_BINDING=--mount type=bind,source=$(shell pwd)/db,destination=/opt/bruplint/src/instance
 
 RUN_INTERACTIVE_COMMAND=/bin/sh
 
@@ -55,8 +56,10 @@ pull-images:
 
 run:
 	$(info $(INFO_PREFIX)Running Docker image in production mode)
-	@$(DOCKER) run $(DOCKER_RUN_ARGS) $(DOCKER_PORT_BINDINGS) $(DOCKER_IMAGE_NAME)
+	@mkdir -p db
+	@$(DOCKER) run $(DOCKER_RUN_ARGS) $(DOCKER_PORT_BINDINGS) $(DOCKER_VOLUME_BINDING) $(DOCKER_IMAGE_NAME)
 
 run-interactive:
 	$(info $(INFO_PREFIX)Running Docker image in interactive mode)
-	@$(DOCKER) run $(DOCKER_RUN_ARGS) $(DOCKER_PORT_BINDINGS) $(DOCKER_IMAGE_NAME) $(RUN_INTERACTIVE_COMMAND)
+	@mkdir -p db
+	@$(DOCKER) run $(DOCKER_RUN_ARGS) $(DOCKER_PORT_BINDINGS) $(DOCKER_VOLUME_BINDING) $(DOCKER_IMAGE_NAME) $(RUN_INTERACTIVE_COMMAND)
