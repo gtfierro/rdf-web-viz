@@ -5,3 +5,6 @@ Flask-SQLAlchemy==3.0.2
 pyoxigraph==0.3.8
 urllib3==1.26.12
 waitress==2.1.2
+
+# 1.4.44 fails with "EOFError: Compressed file ended before the end-of-stream marker was reached"
+SQLAlchemy==1.4.18

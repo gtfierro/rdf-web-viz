@@ -1,3 +1,4 @@
+from cityhash import CityHash32
 from datetime import datetime
 from flask import Flask, Response, render_template, request, make_response
 from flask_cors import CORS
@@ -9,7 +10,6 @@ from typing import Any, Mapping, Optional
 from urllib.parse import urljoin
 from urllib.request import urlopen
 from waitress import serve
-from cityhash import CityHash32
 
 def create(config: Optional[Mapping[str, Any]] = None) -> Flask:
     app = Flask(
@@ -29,7 +29,7 @@ def create(config: Optional[Mapping[str, Any]] = None) -> Flask:
         makedirs(app.instance_path)
     except OSError:
         pass
-    
+
     db = SQLAlchemy()
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///bruplint.db"
     db.init_app(app)
@@ -121,14 +121,10 @@ def create(config: Optional[Mapping[str, Any]] = None) -> Flask:
     def post_view_json(username: str, display_name: str) -> Response:
 
         if request.headers.get("Content-Type") != "application/json":
-            print("Failed JSON")
             app.aborter(400) # Content is not JSON
 
-        print(request.json)
-
         if isBru(request.json):
-            graph_content = request.json.get("graph").get("content").get("data")
-            # graph_source = None
+            graph_content = bytes(request.json.get("graph").get("content").get("data"), "utf-8")
         elif isBrl(request.json):
             graph_source = request.json.get("graph").get("url")
             location = urljoin(request.host_url, graph_source) if graph_source[0] == '/' else graph_source
@@ -136,10 +132,8 @@ def create(config: Optional[Mapping[str, Any]] = None) -> Flask:
                 with urlopen(location) as graph:
                     graph_content = graph.read()
             except:
-                print("Failed URL")
                 app.aborter(400) # Failed to read from URL
         else:
-            print("Failed BRL")
             app.aborter(400) # Content is not a Bru nor a Brl
 
         user = getUserOr4XX(username)
@@ -177,7 +171,7 @@ def create(config: Optional[Mapping[str, Any]] = None) -> Flask:
                 view_hash = working_graph.hash_id,
                 transforms = request.json.get("transforms")
             )
-        
+
         db.session.add(new_view)
         db.session.commit()
 
