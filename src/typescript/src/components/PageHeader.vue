@@ -19,9 +19,14 @@ export { default } from "@/components/PageHeader";
 				</tr>
 				<tr>
 					<td style="text-align: right;">
-						<button v-if='!loggedIn' @click='createUser()'>Create User</button>
-						<button @click='attemptLogIn()'>{{ loggedIn ? "Change User" : "Log In" }}</button>
-						<button v-if='loggedIn' @click='logOut()'>Log Out</button>
+						<template v-if='loggedIn'>
+							<button @click='getViews()'>My Views</button>
+							<button @click='logOut()'>Log Out</button>
+						</template>
+						<template v-else>
+							<button @click='createUser()'>Create User</button>
+							<button @click='attemptLogIn()'>{{ loggedIn ? "Change User" : "Log In" }}</button>
+						</template>
 					</td>
 				</tr>
 			</tbody>

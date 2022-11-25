@@ -90,7 +90,7 @@ export default defineComponent({
 
 				let is_changing_user = this.loggedIn;
 
-				fetch(`${window.view_location_options.hostname}/user/${username}`, {
+				fetch(`${this.view_location_options.hostname}/user/${username}`, {
 					headers: {
 						Authentication: api_key
 					}
@@ -143,9 +143,12 @@ export default defineComponent({
 						return username;
 					}
 				}
-			}).then(username => fetch(`${window.view_location_options.hostname}/user/${username.value}`, {
+			}).then(result => {
+				if(result.isDismissed || result.value === undefined) throw new Error("User cancelled creating a user");
+				return fetch(`${this.view_location_options.hostname}/user/${result.value}`, {
 					method: "PUT"
-			})).then(async response => {
+				});
+			}).then(async response => {
 				switch(response.status){
 					case 200:
 					case 201:
@@ -185,7 +188,46 @@ export default defineComponent({
 							title: "Failed to create user"
 						});
 				}
-			});
+			})
+			.catch(() => {}); // User cancelled creating a user
+		},
+		getViews(){
+			if(!this.loggedIn) return;
+
+			fetch(`${this.view_location_options.hostname}/view/${this.current_user.username}/views.json`)
+				.then(response => response.json())
+				.then(json => (json as {username: string, views: {name: string, url: string}[]}).views)
+				.then(views => {
+					let inputOptions: Record<string, string> = {};
+					console.log(views)
+					for(let {name, url} of views.reverse()){
+						inputOptions[url] = name;
+					}
+
+					return Swal.fire({
+						input: "select",
+						inputOptions,
+						preConfirm: (value: string): string => value,
+						showCancelButton: true,
+						text: "Load a previously saved view",
+						title: "My Views"
+					})
+				})
+				.then(result => {
+					if(result.isDismissed || result.value === undefined) return;
+
+					let result_match = result.value.match(/^\/view\/(?<username>[^\/]+)\/(?<series_name>[^\/]+)\/view.json/);
+					if(result_match !== null){
+						this.view_location_options.username = result_match.groups?.username ?? '';
+						this.view_location_options.series_name = result_match.groups?.series_name ?? '';
+
+						try{
+							window.history.pushState(null, '', `/view/${this.view_location_options.username}/${this.view_location_options.series_name}`);
+						}catch(e){}
+
+						this.requestLoad();
+					}
+				});
 		},
 		logOut(){
 			if(!this.loggedIn) return;
