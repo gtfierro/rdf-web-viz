@@ -16,6 +16,7 @@ declare global{
 			hostname: string,
 			username: string,
 			series_name: string,
+			onDownload: (type: "turtle" | util.ViewFormat, format?: string) => void,
 			onFileUploaded: (file: File) => void,
 			onLoad: (hostname: string, username: string, series_name: string) => void,
 			onSave: (hostname: string, username: string, api_key: string) => void,
@@ -27,6 +28,7 @@ declare global{
 let matching_set = new Set<vis.IdType>();
 let node_view: vis.DataView<vis.Node, "id">;
 let store: oxigraph.Store;
+let transformed_store: oxigraph.Store;
 
 function getAllNodeIds(store: oxigraph.Store): Set<vis.IdType>{
 	return new Set(
@@ -174,67 +176,172 @@ function loadGraph(content: string){
 	window.applyTransforms.value(window.active_transforms);
 }
 
-async function onFileUploaded(file: File){
-	console.log(file)
+function createView(): util.View{
+	if((window.view_location_options.active_graph as any).url !== undefined){
+		return {
+			format: "brl",
+			graph: {...window.view_location_options.active_graph} as util.Brl["graph"],
+			transforms: window.active_transforms.map(transform_element => transform_element.value.toTransform())
+		};
+	}else{
+		return {
+			format: "bru",
+			graph: {...window.view_location_options.active_graph} as util.Bru["graph"],
+			transforms: window.active_transforms.map(transform_element => transform_element.value.toTransform())
+		};
+	}
+}
 
-	if(file.type !== "text/turtle"){
+function onDownload(format: "turtle" | util.ViewFormat, filename: string = "bruplint_view"){
+	let formatted_filename: string;
+
+	switch(format){
+		case "turtle":
+			formatted_filename = filename.endsWith(".ttl") ? filename : `${filename}.ttl`;
+			console.log(`Downloading ${formatted_filename}...`);
+			util.download(
+				formatted_filename,
+				transformed_store.dump("text/turtle", null),
+				"text/turtle"
+			);
+			return;
+		case "bru":
+		case "brl":
+			formatted_filename = filename.endsWith(`.${format}.json`) ? filename : `${filename}.${format}.json`;
+			let view = createView();
+
+			if(view.format === format){
+				console.log(`Downloading ${formatted_filename}...`);
+				util.download(
+					formatted_filename,
+					JSON.stringify(createView()),
+					"application/json"
+				);
+			}else{
+				// Attemping to save a BRU as a BRL, which is impossible becasue there is no link to use (as BRUs only appear from users uploading files client-side)
+				if(format === "brl") return;
+
+				// Attempting to save a BRL as a BRU, dump the original store being used
+				let bru: util.Bru = {
+					format: "bru",
+					graph: {
+						type: "turtle",
+						content: {
+							data: store.dump("text/turtle", null)
+						}
+					},
+					transforms: window.active_transforms.map(transform_element => transform_element.value.toTransform())
+				};
+
+				console.log(`Downloading ${formatted_filename}...`);
+				util.download(
+					formatted_filename,
+					JSON.stringify(bru),
+					"application/json"
+				);
+			}
+			return;
+	}
+}
+
+function loadFromJson(json: object, name: string){
+	if(util.isView(json)){
+		util.toast.fire({
+			icon: "info",
+			title: `Loading View: ${name}`
+		});
+
+		util.clearArray(window.active_transforms);
+
+		window.view_location_options.active_graph = json.graph;
+		json.transforms.forEach(transform => {
+			switch(transform.type){
+				case "sparql":
+					window.active_transforms.push({
+						value: tf.createTransformElement(transform)
+					});
+					break;
+				case "regex":
+					window.active_transforms.push({
+						value: tf.createTransformElement(transform)
+					});
+					break;
+			}
+		});
+
+		if(util.isBrl(json)){
+			util.loadBrl(json, window.view_location_options.hostname)
+				.then(loadGraph);
+		}else{
+			switch(json.graph.type){
+				case "turtle":
+					loadGraph((json.graph.content as {data: string}).data);
+					break;
+				default:
+					util.toast.fire({
+						icon: "error",
+						title: `Unable to fully load BRU: Unknown graph type ${json.graph.type}`
+					});
+					break;
+			}
+		}
+	}else{
 		util.toast.fire({
 			icon: "error",
-			title: `Unsupported MIME type: ${file.type}`
+			title: "Unable to load: Invalid format"
 		});
-		return;
 	}
+}
 
-	readAsText(file).then(text => {
-		util.toast.fire({
-			icon: "success",
-			title: `Loaded local file: ${file.name}`
-		});
+async function onFileUploaded(file: File){
+	console.log(`Uploading ${file.name}...`);
+	switch(file.type){
+		case "text/turtle":
+			readAsText(file).then(text => {
+				util.toast.fire({
+					icon: "success",
+					title: `Loaded local file: ${file.name}`
+				});
 
-		window.view_location_options.active_graph = {
-			type: "turtle",
-			content: {
-				data: text
-			}
-		};
+				window.view_location_options.active_graph = {
+					type: "turtle",
+					content: {
+						data: text
+					}
+				};
 
-		loadGraph(text);
-	}).catch((e) => util.toast.fire({
-		icon: "error",
-		title: `Unable to read local file: ${file.name}, ${e}`
-	}));
+				loadGraph(text);
+			}).catch((e) => util.toast.fire({
+				icon: "error",
+				title: `Unable to read local file: ${file.name}, ${e}`
+			}));
+			break;
+		case "application/json":
+			readAsText(file).then(text => {
+				util.toast.fire({
+					icon: "success",
+					title: `Loaded local file: ${file.name}`
+				});
+
+				loadFromJson(JSON.parse(text), file.name);
+			}).catch((e) => util.toast.fire({
+				icon: "error",
+				title: `Unable to read local file: ${file.name}, ${e}`
+			}));
+			break;
+		default:
+			util.toast.fire({
+				icon: "error",
+				title: `Unsupported MIME type: ${file.type}`
+			});
+			break;
+	}
 }
 
 async function onLoad(hostname: string, username: string, series_name: string){
 	fetch(`${hostname}/view/${username}/${series_name}/view.json`)
-		.then(response => response.json() as unknown as util.View)
-		.then(view => {
-			util.toast.fire({
-				icon: "info",
-				title: `Loading View: ${window.view_location_options.username}/${window.view_location_options.series_name}`
-			});
-
-			util.clearArray(window.active_transforms);
-
-			window.view_location_options.active_graph = view.graph;
-			view.transforms.forEach(transform => {
-				switch(transform.type){
-					case "sparql":
-						window.active_transforms.push({
-							value: tf.createTransformElement(transform)
-						});
-						break;
-					case "regex":
-						window.active_transforms.push({
-							value: tf.createTransformElement(transform)
-						});
-						break;
-				}
-			});
-
-			return util.loadBrl(view as util.Brl, window.view_location_options.hostname);
-		})
-		.then(loadGraph);
+		.then(response => response.json() as object)
+		.then(json => loadFromJson(json, `${window.view_location_options.username}/${window.view_location_options.series_name}`));
 }
 
 async function onSave(hostname: string, username: string, api_key: string){
@@ -284,24 +391,8 @@ async function onSave(hostname: string, username: string, api_key: string){
 				reject(`Unknown status code: ${response.status}`)
 		}
 	})).then(_response => {
-		let view: util.View;
-
-		if((window.view_location_options.active_graph as any).url !== undefined){
-			view = {
-				format: "brl",
-				graph: {...window.view_location_options.active_graph} as util.Brl["graph"],
-				transforms: window.active_transforms.map(transform_element => transform_element.value.toTransform())
-			};
-		}else{
-			view = {
-				format: "bru",
-				graph: {...window.view_location_options.active_graph} as util.Bru["graph"],
-				transforms: window.active_transforms.map(transform_element => transform_element.value.toTransform())
-			};
-		}
-
 		return fetch(`${hostname}/view/${username}/${series_name}/view.json`, {
-			body: JSON.stringify(view),
+			body: JSON.stringify(createView()),
 			headers: {
 				"Authentication": api_key,
 				"Content-Type": "application/json"
@@ -355,7 +446,7 @@ async function main(){
 	util.onceTrue(() => window.applyTransforms !== undefined)
 		.then(() => {
 			window.applyTransforms.value = function(transforms: {value: tf.TransformElement<util.TransformType>}[]){
-				let transformed_store = transforms
+				transformed_store = transforms
 					.map(({value}) => value)
 					.reduce((current_store, transform) => {
 						let applied = transform.apply(current_store);
@@ -382,6 +473,7 @@ async function main(){
 				window.view_location_options.series_name = current_location_match.groups?.series_name ?? '';
 			}
 
+			window.view_location_options.onDownload = onDownload;
 			window.view_location_options.onFileUploaded = onFileUploaded;
 			window.view_location_options.onLoad = onLoad;
 			window.view_location_options.onSave = onSave;

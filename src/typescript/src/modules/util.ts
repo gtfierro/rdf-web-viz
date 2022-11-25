@@ -129,14 +129,25 @@ export function isTransformType(transform_type: string): transform_type is Trans
 	);
 }
 
+export function isSparqlTransform(transform: any): transform is SparqlTransform{
+	return (
+		transform?.type === "sparql" &&
+		typeof transform?.params?.query === "string"
+	);
+}
+
 export function isRegexTransform(transform: any): transform is RegexTransform{
 	return (
-		transform?.type === "string" &&
+		transform?.type === "regex" &&
 		typeof transform?.params?.regex === "string" &&
 		typeof transform?.params?.flags === "string" &&
 		typeof transform?.params?.match_over === "string" &&
 		(transform?.params?.display_as === undefined || typeof transform?.params?.display_as === "string")
 	);
+}
+
+export function isTransform(transform: any): transform is Transform{
+	return isSparqlTransform(transform) || isRegexTransform(transform);
 }
 
 export function createDefaultTransform(type: "sparql"): SparqlTransform;
@@ -245,3 +256,88 @@ export const toast = Swal.mixin({
 	timer: 1500,
 	toast: true
 });
+
+export function download(filename: string, contents: string, mime_type: string = "text/plain"){
+	let download_element = document.createElement('a');
+	download_element.download = filename;
+	download_element.href = `data:${mime_type};charset=utf-8,${encodeURIComponent(contents)}`;
+	download_element.style.display = "none";
+
+	document.body.appendChild(download_element);
+	download_element.click();
+	document.body.removeChild(download_element);
+}
+
+export function isBru(view: object): view is Bru{
+	if(Object.keys(view).length !== 3) return false;
+	for(let [key, value] of Object.entries(view)){
+		switch(key){
+			case "format":
+				if(value !== "bru") return false;
+				break;
+			case "graph":
+				if(Object.keys(value).length !== 2) return false;
+				for(let [graph_key, graph_value] of Object.entries(value as object)){
+					switch(graph_key){
+						case "type":
+							if(typeof(graph_value) !== "string") return false;
+							break;
+						case "content":
+							if(typeof(graph_value) !== "object" || Array.isArray(graph_value)) return false;
+							break;
+						default:
+							return false;
+					}
+				}
+				break;
+			case "transforms":
+				if(!Array.isArray(value)) return false;
+				for(let transform of value){
+					if(!isTransform(transform)) return false;
+				}
+				break;
+			default:
+				return false;
+		}
+	}
+	return true;
+}
+
+export function isBrl(view: object): view is Brl{
+	if(Object.keys(view).length !== 3) return false;
+	for(let [key, value] of Object.entries(view)){
+		switch(key){
+			case "format":
+				if(value !== "brl") return false;
+				break;
+			case "graph":
+				if(Object.keys(value).length !== 2) return false;
+				for(let [graph_key, graph_value] of Object.entries(value as object)){
+					switch(graph_key){
+						case "type":
+							if(typeof(graph_value) !== "string") return false;
+							break;
+						case "url":
+							if(typeof(graph_value) !== "string") return false;
+							break;
+						default:
+							return false;
+					}
+				}
+				break;
+			case "transforms":
+				if(!Array.isArray(value)) return false;
+				for(let transform of value){
+					if(!isTransform(transform)) return false;
+				}
+				break;
+			default:
+				return false;
+		}
+	}
+	return true;
+}
+
+export function isView(view: object): view is View{
+	return isBru(view) || isBrl(view);
+}

@@ -34,6 +34,7 @@ export default defineComponent({
 				hostname: '',
 				username: '',
 				series_name: '',
+				onDownload(_format: "turtle" | util.ViewFormat, _filename?: string){},
 				onFileUploaded(_file: File){},
 				onLoad(_hostname: string, _username: string, _series_name: string){},
 				onSave(_hostname: string, _username: string, _api_key: string){},
@@ -201,6 +202,49 @@ export default defineComponent({
 				title: `Logged out of user: ${username}`
 			});
 		},
+		requestDownload(){
+			if(this.view_location_options.active_graph === null) return;
+
+			let inputOptions: Record<string, string> = {
+				"turtle": "Turtle (After applying transforms)",
+				"bru": "BRU (Embedded-graph View)"
+			};
+
+			if((this.view_location_options.active_graph as util.Brl["graph"]).url !== undefined){
+				inputOptions["brl"] = "BRL (Linked-graph View)";
+			}
+
+			Swal.fire({
+				input: "select",
+				inputOptions,
+				inputPlaceholder: "Select a format for the view",
+				preConfirm: (value: "turtle" | util.ViewFormat): "turtle" | util.ViewFormat | false => {
+					if(value.length === 0){
+						Swal.showValidationMessage("No format selected");
+						return false;
+					}else{
+						return value;
+					}
+				},
+				showCancelButton: true,
+				title: "Download View"
+			}).then(result => {
+				if(result.isDismissed || result.value === undefined || result.value === false) return;
+
+				let format = result.value;
+
+				Swal.fire({
+					input: "text",
+					inputPlaceholder: this.view_location_options.series_name,
+					preConfirm: (value: string): string => value || this.view_location_options.series_name,
+					title: "Enter File Name"
+				}).then(filename_result => {
+					if(filename_result.isDismissed || filename_result.value === undefined) return;
+
+					this.view_location_options.onDownload(format, filename_result.value);
+				})
+			});
+		},
 		requestLoad(){
 			if(this.validateLocationInputs()) this.view_location_options.onLoad(
 				this.view_location_options.hostname,
@@ -215,6 +259,24 @@ export default defineComponent({
 				this.current_user.username as string,
 				this.current_user.api_key as string
 			);
+		},
+		requestUpload(){
+			Swal.fire({
+				input: "file",
+				preConfirm: (value: File | null): File | false => {
+					if(value === null){
+						Swal.showValidationMessage("No file chosen");
+						return false;
+					}
+
+					return value
+				},
+				title: "Upload View"
+			}).then(result => {
+				if(result.isDismissed || result.value === undefined || result.value === false) return;
+
+				this.view_location_options.onFileUploaded(result.value);
+			});
 		},
 		resize(...inputs: HTMLInputElement[]){
 			for(let input of inputs){
@@ -233,7 +295,7 @@ export default defineComponent({
 			let blank_parameters: string[] = [];
 			if(hostname === '') blank_parameters.push("Hostname");
 			if(username === '') blank_parameters.push("Username");
-			if(series_name === '') blank_parameters.push("Series name");
+			if(series_name === '') blank_parameters.push("Display name");
 
 			if(blank_parameters.length > 0){
 				Swal.fire({

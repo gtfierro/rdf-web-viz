@@ -58,7 +58,8 @@ export { default } from "@/components/PageHeader";
 					<td>
 						<button @click='requestSave()' :disabled='view_location_options.active_graph === null || !loggedIn'>Save</button>
 						<button @click='requestLoad()' :disabled='current_hostname_valid !== true'>Load</button>
-						<input class="graph-upload" type="file" accept="text/turtle" @input='view_location_options.onFileUploaded($event.target.files[0])' />
+						<button @click='requestUpload()'>Upload</button>
+						<button @click='requestDownload()' :disabled='view_location_options.active_graph === null'>Download</button>
 					</td>
 				</tr>
 			</tbody>
@@ -119,9 +120,5 @@ export { default } from "@/components/PageHeader";
 
 .hostname-valid {
 	background-color: rgba(127, 255, 127, 0.5);
-}
-
-input.graph-upload {
-	font-size: 1rem;
 }
 </style>
