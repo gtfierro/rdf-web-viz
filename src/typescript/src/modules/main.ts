@@ -293,48 +293,66 @@ function loadFromJson(json: object, name: string){
 	}
 }
 
-async function onFileUploaded(file: File){
-	console.log(`Uploading ${file.name}...`);
-	switch(file.type){
-		case "text/turtle":
-			readAsText(file).then(text => {
-				util.toast.fire({
-					icon: "success",
-					title: `Loaded local file: ${file.name}`
-				});
-
-				window.view_location_options.active_graph = {
-					type: "turtle",
-					content: {
-						data: text
-					}
-				};
-
-				loadGraph(text);
-			}).catch((e) => util.toast.fire({
-				icon: "error",
-				title: `Unable to read local file: ${file.name}, ${e}`
-			}));
-			break;
-		case "application/json":
-			readAsText(file).then(text => {
-				util.toast.fire({
-					icon: "success",
-					title: `Loaded local file: ${file.name}`
-				});
-
-				loadFromJson(JSON.parse(text), file.name);
-			}).catch((e) => util.toast.fire({
-				icon: "error",
-				title: `Unable to read local file: ${file.name}, ${e}`
-			}));
-			break;
-		default:
-			util.toast.fire({
-				icon: "error",
-				title: `Unsupported MIME type: ${file.type}`
+async function onFileUploaded(file: File, type?: "turtle" | "json"){
+	if(type === undefined){
+		if(file.name.endsWith(".ttl")){
+			onFileUploaded(file, "turtle");
+		}else if(file.name.endsWith(".bru.json") || file.name.endsWith(".brl.json")){
+			onFileUploaded(file, "json");
+		}else{
+			Swal.fire({
+				icon: "warning",
+				input: "select",
+				inputOptions: {
+					"turtle": "Turtle-formatted graph",
+					"json": "BRU/BRL (Bruplint output format)"
+				},
+				preConfirm: (value: "turtle" | "json"): "turtle" | "json" => value,
+				showCancelButton: true,
+				text: "The supplied file's type cannot be determined. If this file is properly formatted, please select its format below",
+				title: "Unknown Format"
+			}).then(result => {
+				if(result.isDismissed || result.value === undefined) return;
+				onFileUploaded(file, result.value);
 			});
-			break;
+		}
+	}else{
+		console.log(`Uploading ${file.name}...`);
+		switch(type){
+			case "turtle":
+				readAsText(file).then(text => {
+					util.toast.fire({
+						icon: "success",
+						title: `Loaded local file: ${file.name}`
+					});
+
+					window.view_location_options.active_graph = {
+						type: "turtle",
+						content: {
+							data: text
+						}
+					};
+
+					loadGraph(text);
+				}).catch((e) => util.toast.fire({
+					icon: "error",
+					title: `Unable to read local file: ${file.name}, ${e}`
+				}));
+				break;
+			case "json":
+				readAsText(file).then(text => {
+					util.toast.fire({
+						icon: "success",
+						title: `Loaded local file: ${file.name}`
+					});
+
+					loadFromJson(JSON.parse(text), file.name);
+				}).catch((e) => util.toast.fire({
+					icon: "error",
+					title: `Unable to read local file: ${file.name}, ${e}`
+				}));
+				break;
+		}
 	}
 }
 
